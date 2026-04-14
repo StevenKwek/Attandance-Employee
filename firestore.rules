@@ -1,0 +1,66 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helpers ────────────────────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSelf(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    // ─── users collection ────────────────────────────────────────────────────
+
+    match /users/{userId} {
+      // User bisa baca profilnya sendiri; admin bisa baca semua
+      allow read: if isSelf(userId) || isAdmin();
+
+      // Admin bisa list semua user
+      allow list: if isAdmin();
+
+      // User bisa buat profil sendiri (register), admin bisa buat untuk siapa saja
+      allow create: if isSelf(userId) || isAdmin();
+
+      // User bisa update profilnya sendiri; admin bisa update siapa saja
+      // Tapi hanya admin yang bisa ubah role
+      allow update: if (isSelf(userId) || isAdmin())
+        && (request.resource.data.role == resource.data.role || isAdmin());
+
+      // Hanya admin yang bisa hapus user
+      allow delete: if isAdmin();
+    }
+
+    // ─── attendance collection ────────────────────────────────────────────────
+
+    match /attendance/{recordId} {
+      // Karyawan bisa baca record miliknya; admin bisa baca semua
+      allow read: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+
+      allow list: if isAdmin();
+
+      // Karyawan hanya bisa buat record untuk dirinya sendiri
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+
+      // Karyawan bisa update record miliknya (check-out); admin bisa update semua
+      allow update: if isAuthenticated() &&
+        (resource.data.userId == request.auth.uid || isAdmin())
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.date == resource.data.date;
+
+      // Hanya admin yang bisa hapus record
+      allow delete: if isAdmin();
+    }
+
+  }
+}
