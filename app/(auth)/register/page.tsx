@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -40,7 +40,7 @@ export default function RegisterPage() {
   const strengthColor = ["", "bg-destructive", "bg-warning", "bg-primary", "bg-success"][strength];
 
   // ── Submit ──────────────────────────────────────────────────────────────────
-  const handleRegister = async (e: React.FormEvent) => {
+  const handleRegister = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
 

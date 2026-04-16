@@ -32,7 +32,7 @@ const AuthContext = createContext<AuthContextValue>({
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser]       = useState<User | null>(null);
   const [profile, setProfile] = useState<UserDocument | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,8 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
 
       if (firebaseUser) {
+        let loaded = false;
+
+        // 1. Try Firestore first (2s timeout)
         try {
-          // Timeout after 5s in case Firestore is blocked/offline
           const snap = await Promise.race([
             getDoc(doc(db, "users", firebaseUser.uid)),
             new Promise<null>((_, reject) =>
@@ -51,9 +53,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ]);
           if (snap && "exists" in snap && snap.exists()) {
             setProfile({ id: snap.id, ...(snap.data() as Omit<UserDocument, "id">) });
+            loaded = true;
           }
         } catch {
-          // Firestore unavailable — proceed without profile
+          // Firestore unavailable — fall back to server API
+        }
+
+        // 2. Fallback: server API (not blocked by ad blocker)
+        if (!loaded) {
+          try {
+            const token = await firebaseUser.getIdToken();
+            const res = await fetch(`/api/users/${firebaseUser.uid}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const json = await res.json();
+            if (json.success && json.data) {
+              setProfile(json.data as UserDocument);
+            }
+          } catch {
+            // Both failed — profile stays null
+          }
         }
       } else {
         setProfile(null);
