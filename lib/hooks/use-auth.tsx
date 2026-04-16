@@ -41,10 +41,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(firebaseUser);
 
       if (firebaseUser) {
-        // Fetch Firestore profile
-        const snap = await getDoc(doc(db, "users", firebaseUser.uid));
-        if (snap.exists()) {
-          setProfile({ id: snap.id, ...(snap.data() as Omit<UserDocument, "id">) });
+        try {
+          // Timeout after 5s in case Firestore is blocked/offline
+          const snap = await Promise.race([
+            getDoc(doc(db, "users", firebaseUser.uid)),
+            new Promise<null>((_, reject) =>
+              setTimeout(() => reject(new Error("timeout")), 5000)
+            ),
+          ]);
+          if (snap && "exists" in snap && snap.exists()) {
+            setProfile({ id: snap.id, ...(snap.data() as Omit<UserDocument, "id">) });
+          }
+        } catch {
+          // Firestore unavailable — proceed without profile
         }
       } else {
         setProfile(null);
