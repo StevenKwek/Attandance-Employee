@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth, getInitials } from "@/lib/hooks/use-auth";
 import { auth } from "@/lib/firebase/config";
-import type { SerializedAttendance } from "@/lib/types";
+import type { SerializedAttendance, UserDocument } from "@/lib/types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -138,6 +138,9 @@ function PasswordStrength({ password }: { password: string }) {
 export default function ProfilPage() {
   const { profile, user } = useAuth();
   const userId = user?.uid ?? profile?.id;
+  const [apiProfile, setApiProfile] = useState<UserDocument | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const displayProfile = apiProfile ?? profile;
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -155,13 +158,24 @@ export default function ProfilPage() {
 
   const [myRecords, setMyRecords] = useState<SerializedAttendance[]>([]);
 
-  // Sync form fields when profile loads
+  // Load profile from server API (fast, not blocked by ad blocker)
   useEffect(() => {
-    if (profile) {
-      setName(profile.name);
-      setPhone(profile.phone ?? "");
-    }
-  }, [profile]);
+    if (!userId) return;
+    apiFetch<UserDocument>(`/api/users/${userId}`)
+      .then((data) => {
+        setApiProfile(data);
+        setName(data.name);
+        setPhone(data.phone ?? "");
+      })
+      .catch(() => {
+        // Fall back to Firestore profile if available
+        if (profile) {
+          setName(profile.name);
+          setPhone(profile.phone ?? "");
+        }
+      })
+      .finally(() => setProfileLoading(false));
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadHistory = useCallback(async () => {
     if (!userId) return;
@@ -181,7 +195,7 @@ export default function ProfilPage() {
   );
   const kehadiranRate = myRecords.length > 0 ? Math.round((hadirCount / myRecords.length) * 100) : 0;
 
-  const joinDate = profile?.joinDate ? new Date(profile.joinDate) : null;
+  const joinDate = displayProfile?.joinDate ? new Date(displayProfile.joinDate) : null;
   const yearsWorked = joinDate
     ? Math.floor((Date.now() - joinDate.getTime()) / (1000 * 60 * 60 * 24 * 365))
     : null;
@@ -258,7 +272,7 @@ export default function ProfilPage() {
     }
   };
 
-  if (!profile) {
+  if (profileLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -290,7 +304,7 @@ export default function ProfilPage() {
                 <h2 className="text-xl font-bold text-foreground">{name}</h2>
                 <Badge variant="aktif" className="self-center sm:self-auto">Aktif</Badge>
               </div>
-              <p className="text-muted-foreground text-sm mt-1 capitalize">{profile.role} {profile.department ? `• ${profile.department}` : ""}</p>
+              <p className="text-muted-foreground text-sm mt-1 capitalize">{displayProfile?.role} {displayProfile?.department ? `• ${displayProfile.department}` : ""}</p>
               {joinDate && (
                 <p className="text-muted-foreground text-xs mt-1">
                   Bergabung sejak {joinDate.toLocaleDateString("id-ID", { month: "long", year: "numeric" })}
@@ -343,7 +357,7 @@ export default function ProfilPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Email</Label>
-                <InfoRow icon={Mail} value={profile.email} muted={editing} />
+                <InfoRow icon={Mail} value={displayProfile?.email ?? user?.email ?? "—"} muted={editing} />
                 {editing && <p className="text-xs text-muted-foreground">Email tidak dapat diubah.</p>}
               </div>
               <div className="space-y-1.5">
@@ -430,9 +444,9 @@ export default function ProfilPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <InfoRow icon={Briefcase} label="Role" value={profile.role === "admin" ? "Admin" : "Karyawan"} />
-              {profile.department && <InfoRow icon={Building2} label="Departemen" value={profile.department} />}
-              <InfoRow icon={User} label="User ID" value={profile.id.slice(0, 12) + "…"} mono />
+              <InfoRow icon={Briefcase} label="Role" value={displayProfile?.role === "admin" ? "Admin" : "Karyawan"} />
+              {displayProfile?.department && <InfoRow icon={Building2} label="Departemen" value={displayProfile.department} />}
+              <InfoRow icon={User} label="User ID" value={(userId ?? "—").slice(0, 12) + "…"} mono />
               {joinDate && (
                 <InfoRow icon={Calendar} label="Bergabung" value={joinDate.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} />
               )}

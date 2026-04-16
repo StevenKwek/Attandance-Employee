@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { loginUser } from "@/lib/services/auth.service";
+import { apiFetch } from "@/lib/api-client";
+import { auth } from "@/lib/firebase/config";
+import type { UserDocument } from "@/lib/types";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,9 +30,20 @@ export default function LoginPage() {
     try {
       await loginUser({ email, password });
 
-      // Redirect to beranda — DashboardLayout will redirect admin to /dashboard automatically
+      // Get role from server API (not Firestore client-side — faster and not blocked by ad blocker)
+      let role = "employee";
+      const uid = auth.currentUser?.uid;
+      if (uid) {
+        try {
+          const userData = await apiFetch<UserDocument>(`/api/users/${uid}`);
+          role = userData.role ?? "employee";
+        } catch {
+          // default to employee
+        }
+      }
+
       startNavigation();
-      router.push("/beranda");
+      router.push(role === "admin" ? "/dashboard" : "/beranda");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Login gagal";
       // Map common Firebase error codes to user-friendly messages
