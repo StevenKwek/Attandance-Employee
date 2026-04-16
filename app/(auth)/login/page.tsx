@@ -10,8 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { loginUser } from "@/lib/services/auth.service";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase/config";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,20 +27,9 @@ export default function LoginPage() {
     try {
       await loginUser({ email, password });
 
-      // Fetch role to redirect to the right dashboard
-      const uid = auth.currentUser?.uid;
-      let role = "employee";
-      if (uid) {
-        try {
-          const snap = await getDoc(doc(db, "users", uid));
-          if (snap.exists()) role = snap.data().role ?? "employee";
-        } catch {
-          // Firestore unavailable — default to employee dashboard
-        }
-      }
-
+      // Redirect to beranda — DashboardLayout will redirect admin to /dashboard automatically
       startNavigation();
-      router.push(role === "admin" ? "/dashboard" : "/beranda");
+      router.push("/beranda");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Login gagal";
       // Map common Firebase error codes to user-friendly messages

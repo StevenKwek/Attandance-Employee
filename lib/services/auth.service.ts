@@ -39,14 +39,17 @@ export async function registerUser(
 
   const uid = credential.user.uid;
 
-  // 2. Persist user profile in Firestore
+  // 2. Persist user profile in Firestore (non-blocking with timeout)
   const userRef = doc(db, "users", uid);
-  await setDoc(userRef, {
-    name,
-    email,
-    role: role as UserRole,
-    createdAt: serverTimestamp(),
-  });
+  await Promise.race([
+    setDoc(userRef, {
+      name,
+      email,
+      role: role as UserRole,
+      createdAt: serverTimestamp(),
+    }),
+    new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+  ]);
 
   return {
     id: uid,
