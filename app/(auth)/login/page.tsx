@@ -33,8 +33,12 @@ export default function LoginPage() {
       const uid = auth.currentUser?.uid;
       let role = "employee";
       if (uid) {
-        const snap = await getDoc(doc(db, "users", uid));
-        if (snap.exists()) role = snap.data().role ?? "employee";
+        try {
+          const snap = await getDoc(doc(db, "users", uid));
+          if (snap.exists()) role = snap.data().role ?? "employee";
+        } catch {
+          // Firestore unavailable — default to employee dashboard
+        }
       }
 
       startNavigation();
