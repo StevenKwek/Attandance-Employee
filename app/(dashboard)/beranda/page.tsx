@@ -73,7 +73,8 @@ function LiveClock() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function BerandaPage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const userId = user?.uid ?? profile?.id;
   const [loading,       setLoading]       = useState(true);
   const [todayRecord,   setTodayRecord]   = useState<SerializedAttendance | null>(null);
   const [recentHistory, setRecentHistory] = useState<SerializedAttendance[]>([]);
@@ -81,7 +82,7 @@ export default function BerandaPage() {
   const [streak,  setStreak]  = useState(0);
 
   useEffect(() => {
-    if (!profile) return;
+    if (!userId) return;
 
     const load = async () => {
       setLoading(true);
@@ -97,9 +98,9 @@ export default function BerandaPage() {
 
         // Fetch attendance history + monthly report in parallel
         const [history, report] = await Promise.all([
-          apiFetch<SerializedAttendance[]>(`/api/attendance?userId=${profile.id}`)
+          apiFetch<SerializedAttendance[]>(`/api/attendance?userId=${userId}`)
             .catch(() => [] as SerializedAttendance[]),
-          apiFetch<ReportResult>(`/api/reports?startDate=${monthStart}&endDate=${monthEnd}&userId=${profile.id}`)
+          apiFetch<ReportResult>(`/api/reports?startDate=${monthStart}&endDate=${monthEnd}&userId=${userId}`)
             .catch(() => ({ records: [], summary: { totalPresent: 0, totalLate: 0, totalAbsent: 0 } })),
         ]);
 
@@ -140,7 +141,7 @@ export default function BerandaPage() {
     };
 
     load();
-  }, [profile]);
+  }, [userId]);
 
   const today   = todayISO();
   const todayStr = new Date().toLocaleDateString("id-ID", {

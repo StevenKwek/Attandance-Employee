@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const snap = await Promise.race([
             getDoc(doc(db, "users", firebaseUser.uid)),
             new Promise<null>((_, reject) =>
-              setTimeout(() => reject(new Error("timeout")), 5000)
+              setTimeout(() => reject(new Error("timeout")), 3000)
             ),
           ]);
           if (snap && "exists" in snap && snap.exists()) {
