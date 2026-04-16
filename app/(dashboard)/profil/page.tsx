@@ -137,6 +137,7 @@ function PasswordStrength({ password }: { password: string }) {
 
 export default function ProfilPage() {
   const { profile, user } = useAuth();
+  const userId = user?.uid ?? profile?.id;
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -163,12 +164,12 @@ export default function ProfilPage() {
   }, [profile]);
 
   const loadHistory = useCallback(async () => {
-    if (!profile) return;
+    if (!userId) return;
     try {
-      const data = await apiFetch<SerializedAttendance[]>(`/api/attendance?userId=${profile.id}`);
+      const data = await apiFetch<SerializedAttendance[]>(`/api/attendance?userId=${userId}`);
       setMyRecords(data);
     } catch { /* ignore */ }
-  }, [profile]);
+  }, [userId]);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
 
@@ -188,11 +189,11 @@ export default function ProfilPage() {
   const initials = name ? getInitials(name) : "?";
 
   const handleSaveProfile = async () => {
-    if (!profile) return;
+    if (!userId) return;
     setSaving(true);
     setSaveError("");
     try {
-      await apiFetch(`/api/users/${profile.id}`, {
+      await apiFetch(`/api/users/${userId}`, {
         method: "PATCH",
         body: JSON.stringify({ name, phone }),
       });

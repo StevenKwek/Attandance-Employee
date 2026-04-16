@@ -154,7 +154,8 @@ function CalendarGrid({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function RekapPage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const userId = user?.uid ?? profile?.id;
   const now = new Date();
 
   const [viewYear,  setViewYear]  = useState(now.getFullYear());
@@ -167,7 +168,7 @@ export default function RekapPage() {
   const [selected, setSelected] = useState<DayData | null>(null);
 
   const loadMonth = useCallback(async () => {
-    if (!profile) return;
+    if (!userId) return;
     setLoading(true);
     setSelected(null);
     try {
@@ -175,7 +176,7 @@ export default function RekapPage() {
       const end   = new Date(viewYear, viewMonth, 0).toLocaleDateString("sv-SE");
 
       const result = await apiFetch<{ records: SerializedAttendance[]; summary: { totalPresent: number; totalLate: number; totalAbsent: number } }>(
-        `/api/reports?startDate=${start}&endDate=${end}&userId=${profile.id}`
+        `/api/reports?startDate=${start}&endDate=${end}&userId=${userId}`
       ).catch(() => ({ records: [], summary: { totalPresent: 0, totalLate: 0, totalAbsent: 0 } }));
 
       // Build day data from records
@@ -205,7 +206,7 @@ export default function RekapPage() {
     } finally {
       setLoading(false);
     }
-  }, [profile, viewYear, viewMonth]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [userId, viewYear, viewMonth]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { loadMonth(); }, [loadMonth]);
 

@@ -103,7 +103,8 @@ function useOfficeStatus() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AbsensiPage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const userId = user?.uid ?? profile?.id;
   const officeStatus = useOfficeStatus();
   const [history, setHistory] = useState<SerializedAttendance[]>([]);
   const [todayRecord, setTodayRecord] = useState<SerializedAttendance | null>(null);
@@ -114,10 +115,10 @@ export default function AbsensiPage() {
   const [apiError, setApiError] = useState("");
 
   const loadHistory = useCallback(async () => {
-    if (!profile) return;
+    if (!userId) return;
     setLoadingHistory(true);
     try {
-      const data = await apiFetch<SerializedAttendance[]>(`/api/attendance?userId=${profile.id}`);
+      const data = await apiFetch<SerializedAttendance[]>(`/api/attendance?userId=${userId}`);
       setHistory(data);
       const today = todayISO();
       const rec = data.find((r) => r.date === today) ?? null;
@@ -125,7 +126,7 @@ export default function AbsensiPage() {
     } finally {
       setLoadingHistory(false);
     }
-  }, [profile]);
+  }, [userId]);
 
   useEffect(() => { loadHistory(); }, [loadHistory]);
 

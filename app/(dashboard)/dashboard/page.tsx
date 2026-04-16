@@ -129,7 +129,7 @@ function StatCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<UserDocument[]>([]);
   const [todayRecords, setTodayRecords] = useState<SerializedAttendance[]>([]);
@@ -178,8 +178,8 @@ export default function DashboardPage() {
       }
     };
 
-    if (profile) load();
-  }, [profile]);
+    if (user) load();
+  }, [user]);
 
   const activeEmployees = users.filter((u) => u.status !== "nonaktif").length;
   const hadirCount = todayRecords.filter((r) => r.status === "present").length;
