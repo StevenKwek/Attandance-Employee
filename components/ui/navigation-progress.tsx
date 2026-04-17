@@ -7,33 +7,54 @@ export function NavigationProgress() {
   const pathname = usePathname();
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const prevPathname = useRef(pathname);
 
+  const clearTimers = () => {
+    timersRef.current.forEach((timer) => clearTimeout(timer));
+    timersRef.current = [];
+  };
+
   useEffect(() => {
-    if (pathname !== prevPathname.current) {
-      // Route changed — complete the bar
-      setProgress(100);
-      timerRef.current = setTimeout(() => {
+    if (pathname === prevPathname.current) {
+      return;
+    }
+
+    prevPathname.current = pathname;
+    clearTimers();
+
+    // Schedule updates asynchronously to avoid cascading renders in the effect body.
+    timersRef.current.push(
+      setTimeout(() => {
+        setVisible(true);
+        setProgress(100);
+      }, 0)
+    );
+    timersRef.current.push(
+      setTimeout(() => {
         setVisible(false);
         setProgress(0);
-      }, 400);
-      prevPathname.current = pathname;
-    }
+      }, 400)
+    );
+
+    return clearTimers;
   }, [pathname]);
 
   // Expose start function via custom event
   useEffect(() => {
     const handleStart = () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      clearTimers();
       setVisible(true);
       setProgress(20);
-      timerRef.current = setTimeout(() => setProgress(60), 100);
-      timerRef.current = setTimeout(() => setProgress(80), 400);
+      timersRef.current.push(setTimeout(() => setProgress(60), 100));
+      timersRef.current.push(setTimeout(() => setProgress(80), 400));
     };
 
     window.addEventListener("navigation-start", handleStart);
-    return () => window.removeEventListener("navigation-start", handleStart);
+    return () => {
+      window.removeEventListener("navigation-start", handleStart);
+      clearTimers();
+    };
   }, []);
 
   if (!visible && progress === 0) return null;

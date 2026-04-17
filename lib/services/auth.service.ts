@@ -19,6 +19,11 @@ import {
 import { auth, db } from "@/lib/firebase/config";
 import type { RegisterPayload, LoginPayload, UserDocument, UserRole } from "@/lib/types";
 
+export interface LoginResult {
+  idToken: string;
+  uid: string;
+}
+
 // ─── Register ─────────────────────────────────────────────────────────────────
 
 /**
@@ -39,17 +44,14 @@ export async function registerUser(
 
   const uid = credential.user.uid;
 
-  // 2. Persist user profile in Firestore (non-blocking with timeout)
+  // 2. Persist user profile in Firestore before continuing
   const userRef = doc(db, "users", uid);
-  await Promise.race([
-    setDoc(userRef, {
-      name,
-      email,
-      role: role as UserRole,
-      createdAt: serverTimestamp(),
-    }),
-    new Promise<void>((resolve) => setTimeout(resolve, 3000)),
-  ]);
+  await setDoc(userRef, {
+    name,
+    email,
+    role: role as UserRole,
+    createdAt: serverTimestamp(),
+  });
 
   return {
     id: uid,
@@ -67,11 +69,14 @@ export async function registerUser(
  * Signs in with email/password and returns the Firebase ID token.
  * The token must be sent as `Authorization: Bearer <token>` to protected API routes.
  */
-export async function loginUser(payload: LoginPayload): Promise<string> {
+export async function loginUser(payload: LoginPayload): Promise<LoginResult> {
   const { email, password } = payload;
   const credential = await signInWithEmailAndPassword(auth, email, password);
   const idToken = await credential.user.getIdToken();
-  return idToken;
+  return {
+    idToken,
+    uid: credential.user.uid,
+  };
 }
 
 // ─── Logout ───────────────────────────────────────────────────────────────────

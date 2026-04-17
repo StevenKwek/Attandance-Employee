@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { loginUser } from "@/lib/services/auth.service";
 import { apiFetch } from "@/lib/api-client";
-import { auth } from "@/lib/firebase/config";
 import type { UserDocument } from "@/lib/types";
 
 export default function LoginPage() {
@@ -28,18 +27,17 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await loginUser({ email, password });
+      const { idToken, uid } = await loginUser({ email, password });
 
       // Get role from server API (not Firestore client-side — faster and not blocked by ad blocker)
       let role = "employee";
-      const uid = auth.currentUser?.uid;
-      if (uid) {
-        try {
-          const userData = await apiFetch<UserDocument>(`/api/users/${uid}`);
-          role = userData.role ?? "employee";
-        } catch {
-          // default to employee
-        }
+      try {
+        const userData = await apiFetch<UserDocument>(`/api/users/${uid}`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
+        role = userData.role ?? "employee";
+      } catch {
+        // Fall back to employee page; dashboard layout will redirect once profile resolves.
       }
 
       startNavigation();

@@ -37,51 +37,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
+    let authRequestId = 0;
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      const requestId = ++authRequestId;
+      setLoading(true);
       setUser(firebaseUser);
+      setProfile(null);
 
       if (firebaseUser) {
-        let loaded = false;
+        let nextProfile: UserDocument | null = null;
 
-        // 1. Try Firestore first (2s timeout)
+        // 1. Prefer the server API so role resolution stays consistent with protected routes.
         try {
-          const snap = await Promise.race([
-            getDoc(doc(db, "users", firebaseUser.uid)),
-            new Promise<null>((_, reject) =>
-              setTimeout(() => reject(new Error("timeout")), 2000)
-            ),
-          ]);
-          if (snap && "exists" in snap && snap.exists()) {
-            setProfile({ id: snap.id, ...(snap.data() as Omit<UserDocument, "id">) });
-            loaded = true;
+          const token = await firebaseUser.getIdToken(true);
+          const res = await fetch(`/api/users/${firebaseUser.uid}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const json = await res.json();
+
+          if (res.ok && json.success && json.data) {
+            nextProfile = json.data as UserDocument;
           }
         } catch {
-          // Firestore unavailable — fall back to server API
+          // API unavailable — fall back to Firestore
         }
 
-        // 2. Fallback: server API (not blocked by ad blocker)
-        if (!loaded) {
+        // 2. Fallback to Firestore read for resilience in local/dev environments.
+        if (!nextProfile) {
           try {
-            const token = await firebaseUser.getIdToken();
-            const res = await fetch(`/api/users/${firebaseUser.uid}`, {
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            const json = await res.json();
-            if (json.success && json.data) {
-              setProfile(json.data as UserDocument);
+            const snap = await Promise.race([
+              getDoc(doc(db, "users", firebaseUser.uid)),
+              new Promise<null>((_, reject) =>
+                setTimeout(() => reject(new Error("timeout")), 2000)
+              ),
+            ]);
+
+            if (snap && "exists" in snap && snap.exists()) {
+              nextProfile = {
+                id: snap.id,
+                ...(snap.data() as Omit<UserDocument, "id">),
+              };
             }
           } catch {
             // Both failed — profile stays null
           }
         }
-      } else {
-        setProfile(null);
+
+        if (cancelled || requestId !== authRequestId) {
+          return;
+        }
+
+        setProfile(nextProfile);
+      }
+
+      if (cancelled || requestId !== authRequestId) {
+        return;
       }
 
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   return (

@@ -70,6 +70,10 @@ export interface UpdateUserPayload {
   name?: string;
   email?: string;
   role?: UserRole;
+  department?: string;
+  phone?: string;
+  joinDate?: string;
+  status?: "aktif" | "nonaktif";
 }
 
 export interface CheckInPayload {
